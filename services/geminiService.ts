@@ -8,12 +8,11 @@ import { GoogleGenAI, Modality, Type, GenerateContentResponse } from "@google/ge
 import { CutPack, StoryArc, PaceLevel, FocusTarget, EndingStyle, MediaItem, StoryBeat, RecallStory, LocationPoint, ImageAspectRatio, ImageSize, VideoAspectRatio } from "../types";
 import { base64ToArrayBuffer, pcmToWav } from "./audioUtils";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 /**
  * Transcribes audio using gemini-3-flash-preview
  */
 export const transcribeAudio = async (base64Audio: string): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: [
@@ -32,6 +31,7 @@ export const transcribeAudio = async (base64Audio: string): Promise<string> => {
  * Generates an image using gemini-3-pro-image-preview
  */
 export const generateImage = async (prompt: string, aspectRatio: ImageAspectRatio, size: ImageSize): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
         model: 'gemini-3-pro-image-preview',
         contents: { parts: [{ text: prompt }] },
@@ -52,12 +52,13 @@ export const generateImage = async (prompt: string, aspectRatio: ImageAspectRati
  * Generates a video using veo-3.1-fast-generate-preview
  */
 export const generateVideo = async (prompt: string, aspectRatio: VideoAspectRatio): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     let operation = await ai.models.generateVideos({
         model: 'veo-3.1-fast-generate-preview',
         prompt,
         config: {
             numberOfVideos: 1,
-            resolution: '720p',
+            resolution: '720p', // standard for fast-generate
             aspectRatio
         }
     });
@@ -74,9 +75,10 @@ export const generateVideo = async (prompt: string, aspectRatio: VideoAspectRati
 };
 
 /**
- * Extracts a structured itinerary from natural language using Maps Grounding.
+ * Extracts a structured itinerary using gemini-2.5-flash with Google Maps tool.
  */
 export const extractItinerary = async (text: string): Promise<LocationPoint[]> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: `Extract a list of travel locations from this description: "${text}". 
@@ -103,7 +105,7 @@ export const extractItinerary = async (text: string): Promise<LocationPoint[]> =
 };
 
 /**
- * Analyzes trip and generates story using gemini-3-pro-preview with Thinking Mode.
+ * Core Narrative Engine: Uses gemini-3-pro-preview with thinking budget and search.
  */
 export const analyzeTripAndGenerateStory = async (params: { 
     title: string; 
@@ -115,11 +117,12 @@ export const analyzeTripAndGenerateStory = async (params: {
     media: MediaItem[]; 
     itinerary: LocationPoint[] 
 }): Promise<RecallStory> => {
-    const { title, cutPack, arc, pace, focus, ending, media, itinerary } = params;
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const { title, cutPack, arc, pace, focus, media, itinerary } = params;
     
-    // Explicit Video Understanding: Gemini 3 Pro handles video natively in multimodal prompts.
+    // Video Understanding: Gemini 3 Pro multimodal processing
     const mediaParts = media.slice(0, 15).map(m => {
-        if (m.base64) {
+        if (m.base64 && m.mimeType.startsWith('image')) {
             return {
                 inlineData: {
                     data: m.base64.split(',')[1] || m.base64,
@@ -127,7 +130,9 @@ export const analyzeTripAndGenerateStory = async (params: {
                 }
             };
         }
-        return { text: `[Fragment: ${m.url}]` };
+        // Videos or missing base64 are handled as references if possible, 
+        // but for this implementation we prioritize the visuals we have
+        return { text: `[Fragment: ${m.url} - ${m.source} source]` };
     });
 
     const itineraryContext = itinerary.map(loc => `${loc.name}`).join(" -> ");
@@ -136,24 +141,21 @@ export const analyzeTripAndGenerateStory = async (params: {
         parts: [
             ...mediaParts as any,
             { text: `
-                You are the Principal Director at REELCHEMY STUDIO.
-                Task: Turn these fragments (images and videos) into a cinematic Premiere.
+                System: You are the Lead Narrative Architect at REELCHEMY STUDIO.
+                Project: ${title}
+                Route: ${itineraryContext}
                 
-                Voyage Title: ${title}
-                Route: ${itineraryContext || 'Not specified'}
-                
-                NARRATIVE CONFIGURATION:
-                - Cut Pack (Style): ${cutPack.name}
-                - Story Arc (Structure): ${arc.name}
-                - Pace: ${pace}
-                - Focus Elements: ${focus.join(', ')}
-                - Ending Style: ${ending}
+                NARRATIVE DIRECTION:
+                - Style: ${cutPack.name} (${cutPack.description})
+                - Structure: ${arc.name}
+                - Pacing: ${pace}
+                - Key Focus: ${focus.join(', ')}
 
-                INSTRUCTIONS:
-                - Analyze the visual content of all videos and images deeply.
-                - Use Search Grounding to find interesting facts about the locations in the route.
-                - Create narrative "Beats" that weave these elements together.
-                - Return only valid JSON.
+                REQUIREMENTS:
+                1. Analyze visual fragments deeply (Video Understanding enabled).
+                2. Use Search Grounding to enrich the narration with actual location details.
+                3. Weave a cinematic story arc across exactly ${Math.max(4, Math.min(media.length, 10))} beats.
+                4. Output only valid JSON.
             `}
         ]
     };
@@ -190,7 +192,7 @@ export const analyzeTripAndGenerateStory = async (params: {
     const rawJson = JSON.parse(response.text || "{}");
     
     const beatsWithAudio: StoryBeat[] = await Promise.all(
-        rawJson.beats.map(async (b: any) => {
+        (rawJson.beats || []).map(async (b: any) => {
             const loc = itinerary.find(l => l.name.toLowerCase().includes(b.locationName.toLowerCase())) || itinerary[b.index % (itinerary.length || 1)];
             return {
                 index: b.index,
@@ -209,6 +211,7 @@ export const analyzeTripAndGenerateStory = async (params: {
 };
 
 export const generateBeatAudio = async (text: string, voice: string): Promise<ArrayBuffer> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-preview-tts',
         contents: [{ parts: [{ text }] }],

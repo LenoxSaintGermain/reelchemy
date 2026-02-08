@@ -8,7 +8,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
     Camera, Sparkles, Loader2, Play, Film, ArrowRight, Upload, Globe, 
     CheckCircle2, AlertCircle, Map as MapIcon, Trash2, Sliders, Layers, 
-    Zap, Target, Flag, RefreshCw, Star, Mic, Cloud, Wand2, Image as ImageIcon, Video as VideoIcon, X
+    Zap, Target, Flag, RefreshCw, Star, Mic, Cloud, Wand2, Image as ImageIcon, Video as VideoIcon, X,
+    ChevronRight, Library, Plus, Scissors
 } from 'lucide-react';
 import { 
     AppState, RecallStory, MediaItem, LocationPoint, CutPack, StoryArc, 
@@ -34,6 +35,13 @@ const PACE_OPTIONS: PaceLevel[] = ['Slow Burn', 'Balanced', 'Hypercut'];
 const FOCUS_OPTIONS: FocusTarget[] = ['People', 'Places', 'Food', 'Motion', 'Details', 'Vistas'];
 const ENDING_OPTIONS: EndingStyle[] = ['Mic Drop', 'Soft Landing', 'Cliffhanger'];
 
+// Mock Google Photos Albums
+const MOCK_ALBUMS = [
+    { id: 'alb-1', title: 'Summer in Positano', count: 124, cover: 'https://images.unsplash.com/photo-1533105079780-92b9be482077' },
+    { id: 'alb-2', title: 'London Nocturnes', count: 45, cover: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad' },
+    { id: 'alb-3', title: 'Nordic Light', count: 89, cover: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4' },
+];
+
 function App() {
   const [appState, setAppState] = useState<AppState>(AppState.IMPORTING);
   const [tripTitle, setTripTitle] = useState('REELCHEMY VOYAGE');
@@ -43,8 +51,8 @@ function App() {
   const [loadingMsg, setLoadingMsg] = useState('');
   const [naturalItinerary, setNaturalItinerary] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [cloudLink, setCloudLink] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [showAlbumPicker, setShowAlbumPicker] = useState(false);
   
   // AI Asset Generation State
   const [genPrompt, setGenPrompt] = useState('');
@@ -71,11 +79,7 @@ function App() {
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
         audioChunksRef.current = [];
-
-        mediaRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) audioChunksRef.current.push(event.data);
-        };
-
+        mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) audioChunksRef.current.push(event.data); };
         mediaRecorder.onstop = async () => {
             const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
             const reader = new FileReader();
@@ -83,52 +87,50 @@ function App() {
             reader.onloadend = async () => {
                 const base64Audio = (reader.result as string).split(',')[1];
                 setIsProcessing(true);
-                setLoadingMsg("Transcribing your vision...");
+                setLoadingMsg("Alchemy transcribing...");
                 try {
                     const text = await transcribeAudio(base64Audio);
                     setNaturalItinerary(prev => prev + " " + text);
-                } catch (e) {
-                    console.error(e);
-                } finally {
-                    setIsProcessing(false);
-                }
+                } catch (e) { console.error(e); } finally { setIsProcessing(false); }
             };
         };
-
         mediaRecorder.start();
         setIsRecording(true);
-    } catch (e) {
-        console.error("Mic error:", e);
-    }
+    } catch (e) { console.error(e); }
   };
 
-  const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
-    setIsRecording(false);
-  };
+  const stopRecording = () => { mediaRecorderRef.current?.stop(); setIsRecording(false); };
 
-  // --- Cloud Sync Mock ---
-  const handleCloudSync = () => {
-    if (!cloudLink) return;
+  // --- Google Photos Mock ---
+  const handleSelectAlbum = (albumId: string) => {
     setIsProcessing(true);
-    setLoadingMsg("Synchronizing Cloud Album...");
-    // Mocking cloud import: In real app, this would use Google Photos API
+    setLoadingMsg("Synchronizing Cloud Fragments...");
+    setShowAlbumPicker(false);
     setTimeout(() => {
-        setMedia(prev => [
-            ...prev,
-            { id: `cloud-${Date.now()}`, url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e", mimeType: "image/jpeg", timestamp: new Date().toISOString(), source: 'cloud' },
-            { id: `cloud-${Date.now() + 1}`, url: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1", mimeType: "image/jpeg", timestamp: new Date().toISOString(), source: 'cloud' }
-        ]);
+        const newMedia: MediaItem[] = [
+            { id: `cl-${Date.now()}-1`, url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e", mimeType: "image/jpeg", timestamp: new Date().toISOString(), source: 'cloud' },
+            { id: `cl-${Date.now()}-2`, url: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1", mimeType: "image/jpeg", timestamp: new Date().toISOString(), source: 'cloud' }
+        ];
+        setMedia(prev => [...prev, ...newMedia]);
         setIsProcessing(false);
-        setCloudLink('');
     }, 2000);
   };
 
   // --- Asset Generation ---
   const handleGenerateAsset = async () => {
     if (!genPrompt) return;
+
+    // Veo Mandatory Check: Ensure Key Selection
+    // Assume window.aistudio.hasSelectedApiKey and openSelectKey are available
+    // @ts-ignore
+    const hasKey = await window.aistudio.hasSelectedApiKey();
+    if (!hasKey) {
+        // @ts-ignore
+        await window.aistudio.openSelectKey();
+    }
+
     setIsProcessing(true);
-    setLoadingMsg(genType === 'image' ? "Generating High-Quality Image..." : "Synthesizing AI Video...");
+    setLoadingMsg(genType === 'image' ? "Generating Cinematic Frame..." : "Rendering AI Sequence...");
     try {
         if (genType === 'image') {
             const url = await generateImage(genPrompt, imageAspectRatio, imageSize);
@@ -141,13 +143,12 @@ function App() {
         setGenPrompt('');
     } catch (e) {
         console.error(e);
-        alert("Generation failed. Check console.");
+        alert("Studio error: Generation failed. Please select a valid paid API key for Veo.");
     } finally {
         setIsProcessing(false);
     }
   };
 
-  // --- Itinerary Extraction ---
   const handleExtractJourney = async () => {
     if (!naturalItinerary.trim()) return;
     setIsProcessing(true);
@@ -155,15 +156,12 @@ function App() {
     try {
         const points = await extractItinerary(naturalItinerary);
         setItinerary(prev => [...prev, ...points]);
-    } catch (e) {
-        alert("Studio connection failed.");
-    } finally {
+    } catch (e) { console.error(e); } finally {
         setIsProcessing(false);
         setNaturalItinerary('');
     }
   };
 
-  // --- Media Processing ---
   const processFiles = (files: File[]) => {
     setIsProcessing(true);
     const newMedia: MediaItem[] = [];
@@ -189,11 +187,9 @@ function App() {
     });
   };
 
-  // --- Main Narrative Synthesis ---
   const handleGenerate = async () => {
     setAppState(AppState.ANALYZING);
-    setLoadingMsg("Activating Thinking Mode...");
-
+    setLoadingMsg("Activating Deep Thinking Mode...");
     try {
         const generatedStory = await analyzeTripAndGenerateStory({
             title: tripTitle,
@@ -206,22 +202,18 @@ function App() {
             itinerary
         });
 
-        setLoadingMsg("Developing Final Premiere...");
+        setLoadingMsg("Developing Premiere Cut...");
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         const ctx = new AudioContextClass();
-
-        const voice = selectedCutPack.category === 'Moody' ? 'Kore' : 
-                      selectedCutPack.category === 'Epic' ? 'Fenrir' : 
-                      selectedCutPack.category === 'Bright' ? 'Puck' : 'Charon';
+        const voice = selectedCutPack.category === 'Moody' ? 'Kore' : 'Puck';
 
         for (let i = 0; i < generatedStory.beats.length; i++) {
             const beat = generatedStory.beats[i];
             const ab = await generateBeatAudio(beat.text, voice);
             beat.audioBuffer = await ctx.decodeAudioData(ab);
-            setLoadingMsg(`Mastering Beat ${i + 1}/${generatedStory.beats.length}...`);
+            setLoadingMsg(`Mastering Scene ${i + 1}/${generatedStory.beats.length}...`);
         }
         await ctx.close();
-
         setStory(generatedStory);
         setAppState(AppState.PREMIERE);
     } catch (err) {
@@ -232,9 +224,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-white selection:text-black overflow-hidden relative">
-      
-      {/* BACKGROUND VIDEO */}
-      <div className="fixed inset-0 z-0 overflow-hidden opacity-20 grayscale pointer-events-none">
+      {/* CINEMATIC BG */}
+      <div className="fixed inset-0 z-0 opacity-20 grayscale pointer-events-none">
         <video autoPlay muted loop playsInline className="w-full h-full object-cover scale-110 animate-slow-pan">
             <source src="https://assets.mixkit.co/videos/preview/mixkit-clouds-and-sun-at-sunset-from-above-the-clouds-40291-large.mp4" type="video/mp4" />
         </video>
@@ -246,117 +237,120 @@ function App() {
           <div className="flex-1 space-y-12">
             <header className="space-y-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] tracking-[0.3em] font-bold text-white/40 uppercase">
-                   <Wand2 size={12} />
-                   <span>Reelchemy Studio // Cinematic AI</span>
+                   <Star size={12} className="text-amber-500" />
+                   <span>REELCHEMY // STUDIO</span>
                 </div>
                 <h1 className="text-7xl md:text-9xl font-serif text-gradient leading-[0.9] tracking-tighter">
-                   Alchemy <br/><span className="italic font-normal">of Memory.</span>
+                   Alchemy <br/><span className="italic font-normal">of the Frame.</span>
                 </h1>
                 <p className="max-w-md text-white/40 font-light leading-relaxed text-lg">
-                   Turn your digital chaos—Photos, Videos, or raw Narrative—into a high-fidelity cinematic masterpiece.
+                   Turn your fragmented travel media into a cohesive cinematic narrative. Connect your library or synthesize new scenes.
                 </p>
             </header>
 
-            {/* QUICK ACTIONS */}
-            <div className="grid md:grid-cols-2 gap-6">
-                <div className="glass p-8 rounded-[2rem] studio-border space-y-4">
+            <div className="grid md:grid-cols-2 gap-8">
+                {/* JOURNEY INPUT */}
+                <div className="glass p-8 rounded-[2.5rem] studio-border space-y-6">
                     <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Journey Map</label>
+                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">The Narrative Route</label>
                         <button 
                             onMouseDown={startRecording}
                             onMouseUp={stopRecording}
-                            className={`p-2 rounded-full transition-all ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-white/5 hover:bg-white/10 text-white'}`}
+                            className={`p-3 rounded-full transition-all ${isRecording ? 'bg-red-500 shadow-xl animate-pulse' : 'bg-white/5 hover:bg-white/10 text-white'}`}
                         >
-                            <Mic size={16} />
+                            <Mic size={18} />
                         </button>
                     </div>
                     <textarea 
                         value={naturalItinerary}
                         onChange={(e) => setNaturalItinerary(e.target.value)}
-                        placeholder="Paste route or hold mic to narrate..."
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-light min-h-[100px] outline-none focus:border-white/30 transition-all resize-none"
+                        placeholder="Paste your itinerary or hold the mic to narrate..."
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-xs font-light min-h-[140px] outline-none focus:border-white/30 transition-all resize-none placeholder:text-white/10"
                     />
                     <button 
                         onClick={handleExtractJourney}
                         disabled={!naturalItinerary.trim() || isProcessing}
-                        className="w-full bg-white text-black py-3 rounded-full text-[10px] font-bold tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        className="w-full bg-white text-black py-4 rounded-full text-[10px] font-bold tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all"
                     >
                         EXTRACT MARKERS
                     </button>
                 </div>
 
-                <div className="glass p-8 rounded-[2rem] studio-border space-y-4">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Cloud Sync</label>
-                    <div className="flex gap-2">
-                        <input 
-                            type="text" 
-                            value={cloudLink}
-                            onChange={(e) => setCloudLink(e.target.value)}
-                            placeholder="Paste Google Photos/Drive link..."
-                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 text-xs outline-none focus:border-white/30 transition-all"
-                        />
-                        <button 
-                            onClick={handleCloudSync}
-                            className="bg-white/5 hover:bg-white/10 p-4 rounded-xl transition-all"
-                        >
-                            <Cloud size={16} />
-                        </button>
+                {/* ASSET IMPORT */}
+                <div className="glass p-8 rounded-[2.5rem] studio-border space-y-8 flex flex-col justify-between">
+                    <div className="space-y-6">
+                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Import fragments</label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <button 
+                                onClick={() => setShowAlbumPicker(true)}
+                                className="flex flex-col items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/5 py-8 rounded-3xl transition-all group"
+                            >
+                                <Cloud size={24} className="text-white/20 group-hover:text-white" />
+                                <span className="text-[9px] font-bold tracking-widest uppercase">Google Photos</span>
+                            </button>
+                            <button 
+                                onClick={() => setAppState(AppState.GENERATING_ASSET)}
+                                className="flex flex-col items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/5 py-8 rounded-3xl transition-all group"
+                            >
+                                <Sparkles size={24} className="text-white/20 group-hover:text-amber-400" />
+                                <span className="text-[9px] font-bold tracking-widest uppercase">AI Studio</span>
+                            </button>
+                        </div>
                     </div>
-                    <div className="flex gap-4">
-                        <button 
-                            onClick={() => setAppState(AppState.GENERATING_ASSET)}
-                            className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 py-3 rounded-xl text-[10px] font-bold tracking-widest transition-all"
-                        >
-                            <Sparkles size={12} /> CREATE ASSET
-                        </button>
-                        <button 
-                            onClick={() => fileInputRef.current?.click()}
-                            className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 py-3 rounded-xl text-[10px] font-bold tracking-widest transition-all"
-                        >
-                            <Upload size={12} /> UPLOAD
-                        </button>
+
+                    <div className="space-y-4">
+                        <div className="h-[1px] bg-white/5 w-full"></div>
+                        <div className="flex items-center justify-between text-[9px] font-bold tracking-widest text-white/20 uppercase">
+                            <span>Local Uploads</span>
+                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-white/40 hover:text-white transition-all">
+                                <Plus size={12} /> SELECT FILES
+                            </button>
+                        </div>
+                        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => processFiles(Array.from(e.target.files || []))} accept="image/*,video/*" />
                     </div>
-                    <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => processFiles(Array.from(e.target.files || []))} accept="image/*,video/*" />
                 </div>
             </div>
-
-            {itinerary.length > 0 && (
-                <div className="flex flex-wrap gap-2 animate-fade-in">
-                    {itinerary.map((loc, i) => (
-                        <div key={i} className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-[10px] flex items-center gap-2 group">
-                            <MapIcon size={10} className="text-white/40" />
-                            <span>{loc.name.toUpperCase()}</span>
-                            <button onClick={() => setItinerary(prev => prev.filter((_, idx) => idx !== i))}><Trash2 size={10} className="text-red-400 opacity-0 group-hover:opacity-100 transition-all" /></button>
-                        </div>
-                    ))}
-                </div>
-            )}
           </div>
 
-          <div className="w-full lg:w-[400px] space-y-6">
-            <div className="glass p-10 rounded-[2.5rem] studio-border space-y-6">
-                <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Voyage Vault</label>
-                    <div className="grid grid-cols-4 gap-2">
-                        {media.map(m => (
-                            <div key={m.id} className="aspect-square rounded-lg overflow-hidden border border-white/10 relative group">
-                                {m.mimeType.startsWith('video') ? (
-                                    <div className="w-full h-full bg-zinc-800 flex items-center justify-center"><Film size={12} /></div>
-                                ) : (
-                                    <img src={m.url} className="w-full h-full object-cover" />
-                                )}
-                                <button onClick={() => setMedia(prev => prev.filter(x => x.id !== m.id))} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-all"><X size={8}/></button>
-                            </div>
-                        ))}
-                        <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-lg border border-dashed border-white/20 flex items-center justify-center text-white/20 hover:text-white transition-all">+</button>
+          {/* VOYAGE VAULT (SIDEBAR) */}
+          <div className="w-full lg:w-[400px] flex flex-col">
+            <div className="glass p-10 rounded-[2.5rem] studio-border h-full flex flex-col">
+                <div className="flex-1 space-y-8">
+                    <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">Voyage Vault</label>
+                        <span className="text-[10px] font-mono text-white/20">{media.length} FRAGMENTS</span>
                     </div>
+
+                    {media.length === 0 ? (
+                        <div className="flex-1 border border-dashed border-white/10 rounded-[2rem] flex flex-col items-center justify-center p-12 text-center space-y-6 opacity-30">
+                            <Library size={48} />
+                            <p className="text-[10px] font-bold tracking-[0.2em] uppercase">The vault is waiting for fragments</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-4 gap-3 content-start">
+                            {media.map(m => (
+                                <div key={m.id} className="aspect-square rounded-xl overflow-hidden border border-white/10 relative group bg-zinc-900">
+                                    {m.mimeType.startsWith('video') ? (
+                                        <div className="w-full h-full flex items-center justify-center"><Film size={14} className="text-white/30" /></div>
+                                    ) : (
+                                        <img src={m.url} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                    )}
+                                    <button onClick={() => setMedia(prev => prev.filter(x => x.id !== m.id))} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-black/80 p-1 rounded-md transition-all">
+                                        <Trash2 size={10} className="text-red-400" />
+                                    </button>
+                                    {m.source === 'ai' && <div className="absolute bottom-1 left-1 w-1.5 h-1.5 bg-amber-500 rounded-full shadow-[0_0_5px_rgba(245,158,11,0.8)]"></div>}
+                                </div>
+                            ))}
+                            <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border border-dashed border-white/20 flex items-center justify-center text-white/20 hover:text-white transition-all">+</button>
+                        </div>
+                    )}
                 </div>
 
-                <div className="space-y-4 pt-4">
+                <div className="pt-10">
                     <button 
                         disabled={media.length === 0}
                         onClick={() => setAppState(AppState.DESIGNING)}
-                        className="w-full bg-white text-black py-6 rounded-full font-bold tracking-[0.2em] flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-20 shadow-2xl"
+                        className="w-full bg-white text-black py-7 rounded-full font-bold tracking-[0.2em] flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-20 shadow-2xl"
                     >
                         DESIGN PREMIERE
                         <ArrowRight size={18} />
@@ -367,40 +361,74 @@ function App() {
         </div>
       )}
 
+      {/* ALBUM PICKER MODAL */}
+      {showAlbumPicker && (
+          <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in">
+              <div className="max-w-4xl w-full glass p-12 rounded-[3.5rem] studio-border space-y-12 relative">
+                  <button onClick={() => setShowAlbumPicker(false)} className="absolute top-10 right-10 text-white/40 hover:text-white transition-all"><X size={28}/></button>
+                  <header className="space-y-2 text-center">
+                      <h2 className="text-5xl font-serif text-gradient">Google Photos</h2>
+                      <p className="text-[10px] text-white/40 uppercase tracking-[0.4em]">Connect your fragments for the premiere</p>
+                  </header>
+
+                  <div className="grid md:grid-cols-3 gap-8">
+                      {MOCK_ALBUMS.map(alb => (
+                          <button 
+                            key={alb.id}
+                            onClick={() => handleSelectAlbum(alb.id)}
+                            className="group flex flex-col text-left space-y-6"
+                          >
+                              <div className="aspect-[4/5] rounded-[2.5rem] overflow-hidden relative border border-white/5 transition-all group-hover:scale-[1.02] group-hover:border-white/20 shadow-2xl">
+                                  <img src={alb.cover} className="w-full h-full object-cover grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-1000" />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+                                  <div className="absolute bottom-8 left-8">
+                                      <p className="text-[10px] font-bold tracking-widest text-white/50 uppercase">{alb.count} ITEMS</p>
+                                  </div>
+                              </div>
+                              <div className="px-2">
+                                  <p className="text-lg font-bold tracking-widest uppercase">{alb.title}</p>
+                              </div>
+                          </button>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+
       {appState === AppState.GENERATING_ASSET && (
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in">
-            <div className="max-w-2xl w-full glass p-12 rounded-[3rem] studio-border space-y-10 relative">
-                <button onClick={() => setAppState(AppState.IMPORTING)} className="absolute top-8 right-8 text-white/40 hover:text-white transition-all"><X size={24}/></button>
+            <div className="max-w-3xl w-full glass p-16 rounded-[4rem] studio-border space-y-12 relative shadow-[0_0_100px_rgba(255,255,255,0.05)]">
+                <button onClick={() => setAppState(AppState.IMPORTING)} className="absolute top-12 right-12 text-white/40 hover:text-white transition-all"><X size={28}/></button>
                 
-                <header className="space-y-2 text-center">
-                    <h2 className="text-4xl font-serif text-gradient">AI Asset Studio</h2>
-                    <p className="text-[10px] text-white/40 uppercase tracking-[0.3em]">Generate custom fragments for your film</p>
+                <header className="space-y-4 text-center">
+                    <h2 className="text-5xl font-serif text-gradient">AI Studio</h2>
+                    <p className="text-[11px] text-white/40 uppercase tracking-[0.4em]">Synthesize cinematic fragments from nothing but thought</p>
                 </header>
 
-                <div className="space-y-6">
-                    <div className="flex bg-white/5 p-1 rounded-full">
-                        <button onClick={() => setGenType('image')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-full text-[10px] font-bold tracking-widest transition-all ${genType === 'image' ? 'bg-white text-black shadow-lg' : 'text-white/40 hover:text-white'}`}>
-                            <ImageIcon size={14} /> IMAGE
+                <div className="space-y-8">
+                    <div className="flex bg-white/5 p-2 rounded-full border border-white/5">
+                        <button onClick={() => setGenType('image')} className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-full text-[11px] font-bold tracking-[0.2em] transition-all ${genType === 'image' ? 'bg-white text-black shadow-xl' : 'text-white/40 hover:text-white'}`}>
+                            <ImageIcon size={16} /> IMAGE (PRO)
                         </button>
-                        <button onClick={() => setGenType('video')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-full text-[10px] font-bold tracking-widest transition-all ${genType === 'video' ? 'bg-white text-black shadow-lg' : 'text-white/40 hover:text-white'}`}>
-                            <VideoIcon size={14} /> VIDEO (VEO 3.1)
+                        <button onClick={() => setGenType('video')} className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-full text-[11px] font-bold tracking-[0.2em] transition-all ${genType === 'video' ? 'bg-white text-black shadow-xl' : 'text-white/40 hover:text-white'}`}>
+                            <VideoIcon size={16} /> VIDEO (VEO 3.1)
                         </button>
                     </div>
 
                     <textarea 
                         value={genPrompt}
                         onChange={(e) => setGenPrompt(e.target.value)}
-                        placeholder="Describe the fragment... e.g., A vintage drone shot of the Amalfi coast at sunset, cinematic lighting."
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-sm font-light min-h-[150px] outline-none focus:border-white/30 transition-all resize-none"
+                        placeholder="Define the vision... e.g., A low-angle drone shot of a misty Nordic fjord at first light, 35mm film grain, moody shadows."
+                        className="w-full bg-white/5 border border-white/10 rounded-[2rem] p-8 text-sm font-light min-h-[160px] outline-none focus:border-white/30 transition-all resize-none placeholder:text-white/10"
                     />
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Aspect Ratio</label>
+                    <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                            <label className="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em]">Aspect Ratio</label>
                             <select 
                                 value={genType === 'image' ? imageAspectRatio : videoAspectRatio}
                                 onChange={(e) => genType === 'image' ? setImageAspectRatio(e.target.value as any) : setVideoAspectRatio(e.target.value as any)}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs outline-none"
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-xs outline-none focus:border-white/30 appearance-none cursor-pointer"
                             >
                                 {genType === 'image' ? (
                                     ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"].map(r => <option key={r} value={r}>{r}</option>)
@@ -410,14 +438,14 @@ function App() {
                             </select>
                         </div>
                         {genType === 'image' && (
-                             <div className="space-y-2">
-                                <label className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Resolution</label>
+                             <div className="space-y-4">
+                                <label className="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em]">Resolution</label>
                                 <select 
                                     value={imageSize}
                                     onChange={(e) => setImageSize(e.target.value as any)}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs outline-none"
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-xs outline-none focus:border-white/30 appearance-none cursor-pointer"
                                 >
-                                    {["1K", "2K", "4K"].map(s => <option key={s} value={s}>{s}</option>)}
+                                    {["1K", "2K", "4K"].map(s => <option key={s} value={s}>{s} Master</option>)}
                                 </select>
                             </div>
                         )}
@@ -427,36 +455,39 @@ function App() {
                 <button 
                     onClick={handleGenerateAsset}
                     disabled={!genPrompt || isProcessing}
-                    className="w-full bg-white text-black py-6 rounded-full font-bold tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-20"
+                    className="w-full bg-white text-black py-7 rounded-full font-bold tracking-[0.3em] flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-20 shadow-[0_20px_60px_rgba(255,255,255,0.1)]"
                 >
-                    {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                    GENERATE ASSET
+                    {isProcessing ? <Loader2 size={24} className="animate-spin" /> : <Scissors size={20} />}
+                    SYNTHESIZE FRAGMENT
                 </button>
+                {genType === 'video' && (
+                    <p className="text-center text-[9px] text-white/20 uppercase tracking-[0.2em]">Note: Veo generation requires a paid API key selection.</p>
+                )}
             </div>
         </div>
       )}
 
       {appState === AppState.DESIGNING && (
         <div className="relative z-10 max-w-6xl mx-auto px-6 py-20 animate-fade-in-up">
-            <header className="mb-16 space-y-4">
-                <button onClick={() => setAppState(AppState.IMPORTING)} className="text-[10px] font-bold tracking-[0.2em] text-white/30 hover:text-white transition-colors uppercase">← Back to Imports</button>
-                <h2 className="text-6xl font-serif text-gradient tracking-tighter">Narrative Control</h2>
+            <header className="mb-16 space-y-4 text-center">
+                <button onClick={() => setAppState(AppState.IMPORTING)} className="text-[10px] font-bold tracking-[0.3em] text-white/30 hover:text-white transition-colors uppercase">← Back to Vault</button>
+                <h2 className="text-7xl font-serif text-gradient tracking-tighter">Narrative Control</h2>
             </header>
 
-            <div className="grid lg:grid-cols-3 gap-12">
-                <div className="lg:col-span-2 space-y-10">
-                    <div className="space-y-6">
-                        <h3 className="text-[10px] font-bold tracking-[0.3em] uppercase text-white/40">Director Cut Packs</h3>
-                        <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid lg:grid-cols-3 gap-16">
+                <div className="lg:col-span-2 space-y-12">
+                    <div className="space-y-8">
+                        <h3 className="text-[11px] font-bold tracking-[0.4em] uppercase text-white/40">Select Cut Pack</h3>
+                        <div className="grid md:grid-cols-2 gap-6">
                             {CUT_PACKS.map(pack => (
                                 <button 
                                     key={pack.id}
                                     onClick={() => setSelectedCutPack(pack)}
-                                    className={`p-6 rounded-3xl border text-left transition-all relative overflow-hidden group ${selectedCutPack.id === pack.id ? 'bg-white text-black border-white' : 'glass border-white/10 hover:border-white/30'}`}
+                                    className={`p-10 rounded-[3rem] border text-left transition-all relative overflow-hidden group ${selectedCutPack.id === pack.id ? 'bg-white text-black border-white shadow-2xl' : 'glass border-white/10 hover:border-white/30'}`}
                                 >
-                                    <div className="text-xl font-serif mb-1">{pack.name}</div>
-                                    <div className={`text-[10px] italic font-medium mb-3 ${selectedCutPack.id === pack.id ? 'text-black/60' : 'text-white/40'}`}>{pack.promise}</div>
-                                    <div className={`text-[9px] leading-relaxed ${selectedCutPack.id === pack.id ? 'text-black/40' : 'text-white/20'}`}>{pack.description}</div>
+                                    <div className="text-3xl font-serif mb-2">{pack.name}</div>
+                                    <div className={`text-xs italic font-medium mb-4 ${selectedCutPack.id === pack.id ? 'text-black/60' : 'text-white/40'}`}>{pack.promise}</div>
+                                    <div className={`text-[11px] leading-relaxed ${selectedCutPack.id === pack.id ? 'text-black/40' : 'text-white/20'}`}>{pack.description}</div>
                                 </button>
                             ))}
                         </div>
@@ -464,24 +495,24 @@ function App() {
                 </div>
 
                 <div className="space-y-12">
-                    <div className="glass p-8 rounded-[2rem] space-y-8 studio-border">
-                        <h3 className="text-[10px] font-bold tracking-[0.3em] uppercase text-white/40">Synthesis Config</h3>
+                    <div className="glass p-10 rounded-[3rem] space-y-10 studio-border shadow-2xl">
+                        <h3 className="text-[11px] font-bold tracking-[0.4em] uppercase text-white/40">Synthesis Config</h3>
                         
-                        <div className="space-y-6">
-                            <div className="space-y-3">
-                                <label className="text-[9px] font-bold uppercase tracking-widest text-white/30">Pace</label>
-                                <div className="flex gap-2">
+                        <div className="space-y-10">
+                            <div className="space-y-5">
+                                <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/30">Pace</label>
+                                <div className="flex gap-2 p-2 bg-black/40 rounded-full border border-white/5">
                                     {PACE_OPTIONS.map(p => (
-                                        <button key={p} onClick={() => setPace(p)} className={`flex-1 py-2 text-[8px] font-bold rounded-full border transition-all ${pace === p ? 'bg-white text-black border-white' : 'border-white/10 text-white/40 hover:border-white/20'}`}>{p.toUpperCase()}</button>
+                                        <button key={p} onClick={() => setPace(p)} className={`flex-1 py-3 text-[9px] font-bold rounded-full transition-all ${pace === p ? 'bg-white text-black shadow-xl' : 'text-white/30 hover:text-white'}`}>{p.toUpperCase()}</button>
                                     ))}
                                 </div>
                             </div>
 
-                            <div className="space-y-3">
-                                <label className="text-[9px] font-bold uppercase tracking-widest text-white/30">Focus</label>
+                            <div className="space-y-5">
+                                <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/30">Focus</label>
                                 <div className="flex flex-wrap gap-2">
                                     {FOCUS_OPTIONS.map(f => (
-                                        <button key={f} onClick={() => setFocus(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])} className={`px-3 py-1.5 text-[8px] font-bold rounded-full border transition-all ${focus.includes(f) ? 'bg-white text-black border-white' : 'border-white/10 text-white/40 hover:border-white/20'}`}>{f.toUpperCase()}</button>
+                                        <button key={f} onClick={() => setFocus(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])} className={`px-5 py-3 text-[9px] font-bold rounded-full border transition-all ${focus.includes(f) ? 'bg-white text-black border-white' : 'border-white/10 text-white/30 hover:border-white/20'}`}>{f.toUpperCase()}</button>
                                     ))}
                                 </div>
                             </div>
@@ -489,9 +520,9 @@ function App() {
 
                         <button 
                             onClick={handleGenerate}
-                            className="w-full bg-white text-black py-6 rounded-full font-bold tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all shadow-[0_0_50px_rgba(255,255,255,0.1)]"
+                            className="w-full bg-white text-black py-8 rounded-full font-bold tracking-[0.3em] flex items-center justify-center gap-4 hover:scale-105 active:scale-95 transition-all shadow-[0_20px_50px_rgba(255,255,255,0.1)]"
                         >
-                            <Sparkles size={18} /> PREMIERE FILM
+                            <Sparkles size={24} /> PREMIERE FILM
                         </button>
                     </div>
                 </div>
@@ -501,13 +532,16 @@ function App() {
 
       {appState === AppState.ANALYZING && (
         <div className="min-h-screen flex flex-col items-center justify-center p-10 relative z-20">
-            <div className="space-y-12 text-center relative">
-                <div className="flex items-center justify-center gap-1">
-                    {[1,2,3,4,5,6].map(i => <div key={i} className="w-1 h-20 bg-white rounded-full animate-bounce" style={{ animationDelay: `${i * 0.1}s` }}></div>)}
+            <div className="space-y-16 text-center relative max-w-2xl">
+                <div className="flex items-center justify-center gap-2">
+                    {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="w-1.5 h-24 bg-white rounded-full animate-bounce" style={{ animationDelay: `${i * 0.1}s` }}></div>)}
                 </div>
-                <div className="space-y-6">
-                    <h2 className="text-5xl font-serif italic tracking-wider animate-pulse text-gradient">{loadingMsg}</h2>
-                    <span className="text-[10px] font-mono tracking-[0.3em] opacity-30 uppercase">Thinking Mode: Active // Deep Narrative Analysis</span>
+                <div className="space-y-8">
+                    <h2 className="text-6xl font-serif italic tracking-wider animate-pulse text-gradient leading-tight">{loadingMsg}</h2>
+                    <div className="flex flex-col items-center gap-4">
+                         <div className="h-[1px] w-32 bg-white/20"></div>
+                         <span className="text-[11px] font-mono tracking-[0.5em] opacity-30 uppercase">Thinking System Active // Multimodal Narrative Alchemy</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -519,10 +553,13 @@ function App() {
 
       {/* GLOBAL LOADING OVERLAY */}
       {isProcessing && appState !== AppState.ANALYZING && (
-        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center">
-            <div className="flex flex-col items-center gap-6">
-                <Loader2 size={48} className="animate-spin text-white" />
-                <p className="text-sm font-bold tracking-widest uppercase">{loadingMsg}</p>
+        <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-xl flex items-center justify-center">
+            <div className="flex flex-col items-center gap-10">
+                <div className="relative">
+                    <Loader2 size={64} className="animate-spin text-white opacity-20" />
+                    <Sparkles size={24} className="absolute inset-0 m-auto text-white animate-pulse" />
+                </div>
+                <p className="text-[11px] font-bold tracking-[0.6em] uppercase text-white/60">{loadingMsg}</p>
             </div>
         </div>
       )}
