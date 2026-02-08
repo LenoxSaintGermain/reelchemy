@@ -1,0 +1,110 @@
+
+<!DOCTYPE html>
+<html lang="en" class="bg-black">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>REELCHEMY // STUDIO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['"Plus Jakarta Sans"', 'sans-serif'],
+                        'serif': ['"DM Serif Display"', 'serif'],
+                        'mono': ['"Space Grotesk"', 'monospace'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+                        'fade-in-up': 'fadeInUp 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+                        'slow-pan': 'slowPan 30s linear infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(40px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        slowPan: {
+                            '0%': { transform: 'scale(1.1) translateX(0)' },
+                            '50%': { transform: 'scale(1.2) translateX(-2%)' },
+                            '100%': { transform: 'scale(1.1) translateX(0)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        body {
+            color: #ffffff;
+            overflow-x: hidden;
+            background: #000;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, #ffffff 0%, #a1a1a1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .studio-border {
+            position: relative;
+        }
+        .studio-border::after {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            background: linear-gradient(to right, rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            border-radius: inherit;
+            pointer-events: none;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.28.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.552.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "vite": "https://aistudiocdn.com/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

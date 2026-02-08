@@ -1,0 +1,7 @@
+{
+  "name": "REELCHEMY",
+  "description": "Alchemy for the modern memory. Transform digital chaos into cinematic film.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
